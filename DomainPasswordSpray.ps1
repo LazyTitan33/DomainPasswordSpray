@@ -606,42 +606,42 @@ function Invoke-SpraySinglePassword
         if ($result.status -ne $null) {
             switch ($result.Status) {
                 "VALID" {
-                    Write-Host -ForegroundColor Green "[+] VALID: $($result.Domain)\$($result.Username)"
+                    Write-Host -ForegroundColor Green "[+] VALID: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password)"
                     }
                 }
 
                 "PASSWORD EXPIRED" {
-                    Write-Host -ForegroundColor Cyan "[!] PASSWORD EXPIRED: $($result.Domain)\$($result.Username)"
+                    Write-Host -ForegroundColor Cyan "[!] PASSWORD EXPIRED: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password) # PASSWORD EXPIRED"
                     }
                 }
 
                 "PASSWORD MUST CHANGE" {
-                    Write-Host -ForegroundColor Cyan "[!] PASSWORD MUST CHANGE: $($result.Domain)\$($result.Username)"
+                    Write-Host -ForegroundColor Cyan "[!] PASSWORD MUST CHANGE: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password) # PASSWORD MUST CHANGE"
                     }
                 }
 
                 "INVALID LOGON HOURS" {
-                    Write-Host -ForegroundColor Cyan "[!] INVALID LOGON HOURS: $($result.Domain)\$($result.Username)"
+                    Write-Host -ForegroundColor Cyan "[!] INVALID LOGON HOURS: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password) # INVALID LOGON HOURS"
                     }
                 }
 
                 "INVALID WORKSTATION" {
-                    Write-Host -ForegroundColor Cyan "[!] INVALID WORKSTATION: $($result.Domain)\$($result.Username)"
+                    Write-Host -ForegroundColor Cyan "[!] INVALID WORKSTATION: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password) # INVALID WORKSTATION"
                     }
                 }
 
                 "ACCOUNT LOCKED" {
-                    Write-Host -ForegroundColor Red "[!] ACCOUNT LOCKED: $($result.Domain)\$($result.Username)"
+                    Write-Host -ForegroundColor Red "[!] ACCOUNT LOCKED: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password) # ACCOUNT LOCKED"
                     }
