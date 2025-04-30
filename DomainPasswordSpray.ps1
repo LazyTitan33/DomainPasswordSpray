@@ -431,7 +431,7 @@ function Get-DomainUserList
         # uac 0x10 is LOCKOUT
         # See http://jackstromberg.com/2013/01/useraccountcontrol-attributeflag-values/
         $UserSearcher.filter =
-            "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536)(!userAccountControl:1.2.840.113556.1.4.803:=2)$Filter)"
+            "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=16)(!userAccountControl:1.2.840.113556.1.4.803:=2)$Filter)"
     }
     else
     {
